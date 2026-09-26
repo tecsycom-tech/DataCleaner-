@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depurador y Limpiador de Excel</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS (xlsx) for handling Excel files in browser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+        }
+        .card-blur {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.8);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
+            50% { box-shadow: 0 0 30px rgba(34, 197, 94, 0.5); }
+        }
+        .glow-effect {
+            animation: pulseGlow 3s infinite;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-slate-100 font-sans antialiased flex flex-col justify-between">
+
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-brand-500/30">
+                    <i class="fa-solid fa-file-excel"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                        DataCleaner <span class="text-brand-500 text-xs px-2 py-0.5 rounded-full bg-brand-500/10 border border-brand-500/20">Pro</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Limpiador y Consolidador de BaseWinChiclayo</p>
+                </div>
+            </div>
+            <div class="text-xs text-slate-400 flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>Procesamiento 100% Local y Seguro</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full space-y-8">
+        
+        <!-- Drag and Drop Dropzone -->
+        <section id="dropZoneContainer" class="transition-all duration-300">
+            <div id="dropZone" class="relative group cursor-pointer border-2 border-dashed border-slate-700 hover:border-brand-500 rounded-2xl p-8 sm:p-12 text-center bg-slate-900/40 hover:bg-slate-900/70 transition-all duration-300">
+                <input type="file" id="fileInput" accept=".xlsx, .xls" class="hidden" />
+                <div class="space-y-4">
+                    <div class="w-20 h-20 mx-auto rounded-full bg-slate-800 group-hover:bg-brand-500/10 flex items-center justify-center text-slate-400 group-hover:text-brand-500 transition-colors duration-300">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-lg font-semibold text-slate-200">Arrastra tu archivo Excel aquí o <span class="text-brand-500 underline underline-offset-4">haz clic para buscar</span></p>
+                        <p class="text-sm text-slate-400 mt-1">Soporta formatos <code class="bg-slate-800 px-1.5 py-0.5 rounded text-brand-400">.xlsx</code> y <code class="bg-slate-800 px-1.5 py-0.5 rounded text-brand-400">.xls</code></p>
+                    </div>
+                    <div class="flex items-center justify-center gap-4 text-xs text-slate-500 pt-2">
+                        <span><i class="fa-solid fa-shield-halved text-brand-500 mr-1"></i> Sin envío a servidores</span>
+                        <span><i class="fa-solid fa-bolt text-brand-500 mr-1"></i> Ultrarrápido</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="processSection" class="hidden space-y-6">
+            <!-- File details banner -->
+            <div class="card-blur rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                        <i class="fa-solid fa-file-csv text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 id="fileName" class="font-semibold text-lg text-white">BaseWinChiclayo6k.xlsx</h3>
+                        <p id="fileSize" class="text-xs text-slate-400">0 KB</p>
+                    </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="flex items-center gap-3 w-full md:w-auto">
+                    <button id="resetBtn" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition flex items-center justify-center gap-2 w-full md:w-auto">
+                        <i class="fa-solid fa-rotate-left"></i> Cambiar Archivo
+                    </button>
+                    <button id="cleanBtn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-white font-semibold shadow-lg shadow-brand-500/20 hover:shadow-brand-500/40 transition flex items-center justify-center gap-2 w-full md:w-auto glow-effect">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Procesar y Limpiar Archivo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Bar Before Cleaning -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="initialStats">
+                <div class="card-blur rounded-xl p-5 border-l-4 border-slate-500">
+                    <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Registros Leídos</div>
+                    <div id="statTotalInitial" class="text-3xl font-bold text-white mt-1">0</div>
+                    <div class="text-xs text-slate-500 mt-1">Estado inicial cargado desde Excel</div>
+                </div>
+                <div class="card-blur rounded-xl p-5 border-l-4 border-amber-500/60">
+                    <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Columnas Detectadas</div>
+                    <div id="statColumnsCount" class="text-3xl font-bold text-amber-400 mt-1">0</div>
+                    <div class="text-xs text-slate-500 mt-1">Incluyendo TEL1, tel2, tel3</div>
+                </div>
+                <div class="card-blur rounded-xl p-5 border-l-4 border-blue-500/60">
+                    <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Estado de Procesamiento</div>
+                    <div id="statStatus" class="text-xl font-bold text-blue-400 mt-2 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info"></i> Listo para Limpieza
+                    </div>
+                </div>
+            </div>
+
+            <!-- Duplicates Preview (Nombre / DNI) - shown right after loading, before cleaning -->
+            <div id="duplicatesSection" class="hidden space-y-4">
+                <div id="duplicatesNombreBlock" class="hidden card-blur rounded-2xl border border-amber-500/30 overflow-hidden">
+                    <details open>
+                        <summary class="cursor-pointer list-none flex items-center justify-between gap-3 p-4 bg-amber-500/10 hover:bg-amber-500/15 transition">
+                            <span class="flex items-center gap-2 font-semibold text-amber-300">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                Nombres Duplicados
+                                <span id="duplicatesNombreCount" class="px-2 py-0.5 rounded-full text-xs bg-amber-500/20 border border-amber-500/30">0</span>
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-amber-300/70 text-xs"></i>
+                        </summary>
+                        <div class="overflow-x-auto custom-scrollbar max-h-[350px]">
+                            <table class="w-full text-left text-sm text-slate-300">
+                                <thead id="duplicatesNombreHead" class="text-xs uppercase bg-slate-800/90 text-slate-400 sticky top-0 backdrop-blur z-10"></thead>
+                                <tbody id="duplicatesNombreBody" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
+                            </table>
+                        </div>
+                    </details>
+                </div>
+
+                <div id="duplicatesDniBlock" class="hidden card-blur rounded-2xl border border-rose-500/30 overflow-hidden">
+                    <details open>
+                        <summary class="cursor-pointer list-none flex items-center justify-between gap-3 p-4 bg-rose-500/10 hover:bg-rose-500/15 transition">
+                            <span class="flex items-center gap-2 font-semibold text-rose-300">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                DNI Duplicados
+                                <span id="duplicatesDniCount" class="px-2 py-0.5 rounded-full text-xs bg-rose-500/20 border border-rose-500/30">0</span>
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-rose-300/70 text-xs"></i>
+                        </summary>
+                        <div class="overflow-x-auto custom-scrollbar max-h-[350px]">
+                            <table class="w-full text-left text-sm text-slate-300">
+                                <thead id="duplicatesDniHead" class="text-xs uppercase bg-slate-800/90 text-slate-400 sticky top-0 backdrop-blur z-10"></thead>
+                                <tbody id="duplicatesDniBody" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
+                            </table>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Stats Bar Post Cleaning (hidden initially) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 hidden" id="postStats">
+                <div class="card-blur rounded-xl p-5 border-l-4 border-blue-500">
+                    <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Registros Iniciales</div>
+                    <div id="statPostInitial" class="text-3xl font-bold text-white mt-1">0</div>
+                    <div class="text-xs text-slate-500 mt-1">Total antes de depuración</div>
+                </div>
+                <div class="card-blur rounded-xl p-5 border-l-4 border-brand-500">
+                    <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Registros Limpios Finales</div>
+                    <div id="statCleanFinal" class="text-3xl font-bold text-brand-400 mt-1">0</div>
+                    <div class="text-xs text-brand-500/80 mt-1"><i class="fa-solid fa-circle-check"></i> Nombres y Teléfonos Únicos</div>
+                </div>
+                <div class="card-blur rounded-xl p-5 border-l-4 border-rose-500">
+                    <div class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Números Consolidados</div>
+                    <div id="statRemoved" class="text-3xl font-bold text-rose-400 mt-1">0</div>
+                    <div class="text-xs text-rose-400/80 mt-1"><i class="fa-solid fa-phone"></i> Duplicados dentro de la misma fila</div>
+                </div>
+            </div>
+
+            <!-- Export Bar (Hidden until processed) -->
+            <div id="exportBanner" class="hidden card-blur rounded-2xl p-6 bg-gradient-to-r from-slate-900 via-brand-950/40 to-slate-900 border border-brand-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-lg bg-brand-500/20 text-brand-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-white">¡Limpieza finalizada con éxito!</h4>
+                        <p class="text-xs text-slate-400">Se consolidó la columna Celular (únicos por fila) y los encabezados están en MAYÚSCULAS.</p>
+                    </div>
+                </div>
+                <button id="exportBtn" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold shadow-lg shadow-brand-600/30 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-download"></i> Exportar Excel Limpio (.xlsx)
+                </button>
+            </div>
+
+            <div class="card-blur rounded-2xl p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-table-cells text-brand-500"></i> Vista Previa de Datos
+                        </h3>
+                        <p id="tableSubheading" class="text-xs text-slate-400">Mostrando las primeras 100 filas del archivo original</p>
+                    </div>
+                    <div id="badgeStatus" class="px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 w-fit">
+                        Vista Previa Original
+                    </div>
+                </div>
+
+                <!-- Responsive Table Wrapper -->
+                <div class="overflow-x-auto custom-scrollbar rounded-xl border border-slate-800 max-h-[450px]">
+                    <table class="w-full text-left text-sm text-slate-300">
+                        <thead id="tableHead" class="text-xs uppercase bg-slate-800/90 text-slate-400 sticky top-0 backdrop-blur z-10">
+                            <!-- JS Inject Headers -->
+                        </thead>
+                        <tbody id="tableBody" class="divide-y divide-slate-800 bg-slate-900/30">
+                            <!-- JS Inject Body -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-slate-800/60 py-6 bg-slate-950/40 text-center text-xs text-slate-500">
+        <p>© 2026 DataCleaner Web Application. Procesamiento de datos ultrarrápido con SheetJS.</p>
+    </footer>
+
+    <script>
+        // App State
+        let rawData = [];
+        let cleanedData = [];
+        let fileNameOriginal = "";
+
+        // DOM Elements
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const dropZoneContainer = document.getElementById('dropZoneContainer');
+        const processSection = document.getElementById('processSection');
+        
+        const fileNameEl = document.getElementById('fileName');
+        const fileSizeEl = document.getElementById('fileSize');
+        
+        const resetBtn = document.getElementById('resetBtn');
+        const cleanBtn = document.getElementById('cleanBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        
+        const initialStats = document.getElementById('initialStats');
+        const postStats = document.getElementById('postStats');
+        const exportBanner = document.getElementById('exportBanner');
+
+        const duplicatesSection = document.getElementById('duplicatesSection');
+        const duplicatesNombreBlock = document.getElementById('duplicatesNombreBlock');
+        const duplicatesNombreCount = document.getElementById('duplicatesNombreCount');
+        const duplicatesNombreHead = document.getElementById('duplicatesNombreHead');
+        const duplicatesNombreBody = document.getElementById('duplicatesNombreBody');
+        const duplicatesDniBlock = document.getElementById('duplicatesDniBlock');
+        const duplicatesDniCount = document.getElementById('duplicatesDniCount');
+        const duplicatesDniHead = document.getElementById('duplicatesDniHead');
+        const duplicatesDniBody = document.getElementById('duplicatesDniBody');
+        
+        const statTotalInitial = document.getElementById('statTotalInitial');
+        const statColumnsCount = document.getElementById('statColumnsCount');
+        const statPostInitial = document.getElementById('statPostInitial');
+        const statCleanFinal = document.getElementById('statCleanFinal');
+        const statRemoved = document.getElementById('statRemoved');
+        
+        const tableHead = document.getElementById('tableHead');
+        const tableBody = document.getElementById('tableBody');
+        const tableSubheading = document.getElementById('tableSubheading');
+        const badgeStatus = document.getElementById('badgeStatus');
+
+        // Drag & Drop Listeners
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-brand-500', 'bg-slate-900/80');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-brand-500', 'bg-slate-900/80');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-brand-500', 'bg-slate-900/80');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        resetBtn.addEventListener('click', resetApp);
+
+        function handleFile(file) {
+            if (!file.name.match(/\.(xlsx|xls)$/i)) {
+                alert("Por favor selecciona un archivo Excel válido (.xlsx o .xls)");
+                return;
+            }
+
+            fileNameOriginal = file.name;
+            fileNameEl.textContent = file.name;
+            fileSizeEl.textContent = (file.size / 1024).toFixed(1) + " KB";
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Take first sheet
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Parse sheet to JSON array
+                    rawData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                    if (rawData.length === 0) {
+                        alert("El archivo subido está vacío.");
+                        return;
+                    }
+
+                    // Display Data Setup
+                    setupInitialView();
+                } catch (err) {
+                    console.error("Error al leer el archivo:", err);
+                    alert("Ocurrió un error al procesar el archivo Excel.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Setup Initial View
+        function setupInitialView() {
+            dropZoneContainer.classList.add('hidden');
+            processSection.classList.remove('hidden');
+
+            // Reset UI Visibility
+            initialStats.classList.remove('hidden');
+            postStats.classList.add('hidden');
+            exportBanner.classList.add('hidden');
+            badgeStatus.textContent = "Vista Previa Original";
+            badgeStatus.className = "px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 w-fit";
+
+            // Stats
+            statTotalInitial.textContent = rawData.length.toLocaleString();
+            const cols = Object.keys(rawData[0] || {});
+            statColumnsCount.textContent = cols.length;
+
+            tableSubheading.textContent = `Mostrando los primeros ${Math.min(rawData.length, 100)} registros de ${rawData.length.toLocaleString()}`;
+
+            // Render Table Preview
+            renderTable(rawData.slice(0, 100), cols);
+
+            // Show duplicate Nombre / DNI rows visually
+            renderDuplicatesPreview(cols);
+        }
+
+        // Find the actual key of a row matching a column name, case-insensitive
+        function findColumnKey(row, columnName) {
+            return Object.keys(row).find(k => k.trim().toLowerCase() === columnName);
+        }
+
+        // Collect all rows that belong to a duplicated value group for a given column
+        function getDuplicateRows(data, columnName) {
+            const groups = new Map(); // normalized value -> array of rows
+            for (const row of data) {
+                const key = findColumnKey(row, columnName);
+                if (!key) continue;
+                const val = String(row[key] ?? "").trim();
+                if (val === "") continue;
+                const normalized = val.toLowerCase();
+                if (!groups.has(normalized)) groups.set(normalized, []);
+                groups.get(normalized).push(row);
+            }
+
+            const duplicateRows = [];
+            for (const groupRows of groups.values()) {
+                if (groupRows.length > 1) {
+                    duplicateRows.push(...groupRows);
+                }
+            }
+            return duplicateRows;
+        }
+
+        // Render a small table into the given head/body elements
+        function renderMiniTable(headEl, bodyEl, data, columns) {
+            headEl.innerHTML = "";
+            bodyEl.innerHTML = "";
+
+            const trHead = document.createElement('tr');
+            columns.forEach(col => {
+                const th = document.createElement('th');
+                th.className = "px-4 py-3 font-semibold whitespace-nowrap border-b border-slate-800";
+                th.textContent = String(col).toUpperCase();
+                trHead.appendChild(th);
+            });
+            headEl.appendChild(trHead);
+
+            data.forEach((row, i) => {
+                const tr = document.createElement('tr');
+                tr.className = i % 2 === 0 ? 'bg-slate-900/40 hover:bg-slate-800/50' : 'bg-slate-900/80 hover:bg-slate-800/50';
+                columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.className = "px-4 py-2.5 whitespace-nowrap text-xs border-b border-slate-800/50 text-slate-300";
+                    td.textContent = row[col] !== undefined && row[col] !== null ? row[col] : "";
+                    tr.appendChild(td);
+                });
+                bodyEl.appendChild(tr);
+            });
+        }
+
+        // Detect and display rows with duplicate Nombre / DNI values
+        function renderDuplicatesPreview(cols) {
+            const dupNombre = getDuplicateRows(rawData, 'nombre');
+            const dupDni = getDuplicateRows(rawData, 'dni');
+
+            let anyVisible = false;
+
+            if (dupNombre.length > 0) {
+                duplicatesNombreCount.textContent = dupNombre.length.toLocaleString();
+                renderMiniTable(duplicatesNombreHead, duplicatesNombreBody, dupNombre, cols);
+                duplicatesNombreBlock.classList.remove('hidden');
+                anyVisible = true;
+            } else {
+                duplicatesNombreBlock.classList.add('hidden');
+            }
+
+            if (dupDni.length > 0) {
+                duplicatesDniCount.textContent = dupDni.length.toLocaleString();
+                renderMiniTable(duplicatesDniHead, duplicatesDniBody, dupDni, cols);
+                duplicatesDniBlock.classList.remove('hidden');
+                anyVisible = true;
+            } else {
+                duplicatesDniBlock.classList.add('hidden');
+            }
+
+            if (anyVisible) {
+                duplicatesSection.classList.remove('hidden');
+            } else {
+                duplicatesSection.classList.add('hidden');
+            }
+        }
+
+        // Reset App
+        function resetApp() {
+            rawData = [];
+            cleanedData = [];
+            fileInput.value = "";
+            dropZoneContainer.classList.remove('hidden');
+            processSection.classList.add('hidden');
+            duplicatesSection.classList.add('hidden');
+        }
+
+        // Render Table Component
+        function renderTable(data, columns) {
+            tableHead.innerHTML = "";
+            tableBody.innerHTML = "";
+
+            // Header Row
+            const trHead = document.createElement('tr');
+            columns.forEach(col => {
+                const th = document.createElement('th');
+                th.className = "px-4 py-3 font-semibold whitespace-nowrap border-b border-slate-800";
+                th.textContent = String(col).toUpperCase();
+                trHead.appendChild(th);
+            });
+            tableHead.appendChild(trHead);
+
+            // Body Rows
+            data.forEach((row, i) => {
+                const tr = document.createElement('tr');
+                tr.className = i % 2 === 0 ? 'bg-slate-900/40 hover:bg-slate-800/50' : 'bg-slate-900/80 hover:bg-slate-800/50';
+
+                columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.className = "px-4 py-2.5 whitespace-nowrap text-xs border-b border-slate-800/50 text-slate-300";
+                    td.textContent = row[col] !== undefined && row[col] !== null ? row[col] : "";
+                    tr.appendChild(td);
+                });
+                tableBody.appendChild(tr);
+            });
+        }
+
+        cleanBtn.addEventListener('click', () => {
+            if (!rawData || rawData.length === 0) return;
+
+            const processedRows = [];
+            let duplicatesWithinRows = 0;
+
+            // Helper to clean phone format
+            function cleanPhoneNum(val) {
+                if (val === undefined || val === null) return "";
+                let strVal = String(val).trim();
+                // If float ended in .0
+                if (strVal.endsWith('.0')) {
+                    strVal = strVal.slice(0, -2);
+                }
+                // Strip common empty placeholders
+                if (['', '-', 'nan', 'null', 'undefined', '0'].includes(strVal.toLowerCase())) {
+                    return "";
+                }
+                return strVal;
+            }
+
+            const telKeys = ['tel1', 'tel2', 'tel3'];
+
+            for (let i = 0; i < rawData.length; i++) {
+                const row = rawData[i];
+
+                // Evaluate Tel1, Tel2, Tel3 columns: collect unique valid numbers within this row
+                const seenInRow = new Set();
+                const uniquePhonesInRow = [];
+
+                for (let tk of telKeys) {
+                    const actualKey = Object.keys(row).find(k => k.trim().toLowerCase() === tk);
+                    if (actualKey) {
+                        const rawTel = cleanPhoneNum(row[actualKey]);
+                        if (rawTel !== "") {
+                            if (!seenInRow.has(rawTel)) {
+                                seenInRow.add(rawTel);
+                                uniquePhonesInRow.push(rawTel);
+                            } else {
+                                duplicatesWithinRows++;
+                            }
+                        }
+                    }
+                }
+
+                // Build new object with UPPERCASE HEADERS
+                const newRow = {};
+
+                for (let key of Object.keys(row)) {
+                    const keyLower = key.trim().toLowerCase();
+
+                    // Skip original tel1, tel2, tel3
+                    if (telKeys.includes(keyLower)) {
+                        continue;
+                    }
+
+                    // Convert Header to Uppercase
+                    const upperKey = key.trim().toUpperCase();
+                    newRow[upperKey] = row[key];
+                }
+
+                // Add consolidated Celular column: unique numbers from the same row, joined with " - "
+                newRow['Celular'] = uniquePhonesInRow.join(' - ');
+
+                processedRows.push(newRow);
+            }
+
+            cleanedData = processedRows;
+
+            // Display Results in UI
+            displayPostCleanResults(duplicatesWithinRows);
+        });
+
+        function displayPostCleanResults(duplicatesWithinRows) {
+            const initialTotal = rawData.length;
+            const cleanTotal = cleanedData.length;
+            const removedTotal = duplicatesWithinRows || 0;
+
+            // Toggle stats panels
+            initialStats.classList.add('hidden');
+            postStats.classList.remove('hidden');
+            exportBanner.classList.remove('hidden');
+
+            statPostInitial.textContent = initialTotal.toLocaleString();
+            statCleanFinal.textContent = cleanTotal.toLocaleString();
+            statRemoved.textContent = removedTotal.toLocaleString();
+
+            badgeStatus.textContent = "Base Depurada y Limpia";
+            badgeStatus.className = "px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 w-fit";
+
+            // Update Table View
+            const cols = cleanedData.length > 0 ? Object.keys(cleanedData[0]) : [];
+            tableSubheading.textContent = `Mostrando los primeros ${Math.min(cleanTotal, 100)} registros limpios de ${cleanTotal.toLocaleString()}`;
+            
+            renderTable(cleanedData.slice(0, 100), cols);
+
+            // Scroll down smoothly to export banner
+            exportBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        exportBtn.addEventListener('click', () => {
+            if (!cleanedData || cleanedData.length === 0) {
+                alert("No hay datos limpios para exportar.");
+                return;
+            }
+
+            // Create Worksheet
+            const worksheet = XLSX.utils.json_to_sheet(cleanedData);
+
+            // Create Workbook
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Base_Limpia");
+
+            // Format Filename
+            const cleanFileName = fileNameOriginal.replace(/\.(xlsx|xls)$/i, "") + "_LIMPIA.xlsx";
+
+            // Download file
+            XLSX.writeFile(workbook, cleanFileName);
+        });
+    </script>
+</body>
+</html>
