@@ -224,7 +224,7 @@
                     </div>
                     <div>
                         <h4 class="font-semibold text-white">¡Limpieza finalizada con éxito!</h4>
-                        <p class="text-xs text-slate-400">Se consolidó la columna Celular (únicos por fila) y los encabezados están ordenados correctamente.</p>
+                        <p class="text-xs text-slate-400">Se consolidó la columna TEL1 (únicos por fila) y se excluyeron TEL2 y TEL3.</p>
                     </div>
                 </div>
                 <button id="exportBtn" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold shadow-lg shadow-brand-600/30 transition flex items-center justify-center gap-2">
@@ -633,8 +633,8 @@
                 return;
             }
 
-            // Orden exacto de encabezados solicitado para la exportación
-            const exportHeaders = ['NOMBRE', 'DNI', 'TEL1', 'TEL2', 'TEL3', 'EMPAQUETADO', 'DEPARTAMENTO', 'PROVINCIA', 'DISTRITO'];
+            // Encabezados requeridos (excluyendo TEL2 y TEL3)
+            const exportHeaders = ['NOMBRE', 'DNI', 'TEL1', 'EMPAQUETADO', 'DEPARTAMENTO', 'PROVINCIA', 'DISTRITO'];
 
             // Busca el valor de una columna por nombre (sin distinguir mayúsculas), probando alias
             const getVal = (row, aliases) => {
@@ -659,19 +659,19 @@
                     exportRows.push({
                         'NOMBRE': getVal(row, ['NOMBRE']),
                         'DNI': getVal(row, ['DNI']),
-                        'TEL1': listaTelefonos[0] || "",
+                        'TELEFONO': listaTelefonos[0] || "",
                         'EMPAQUETADO': getVal(row, ['EMPAQUETADO']),
                         'DEPARTAMENTO': getVal(row, ['DEPARTAMEN', 'DEPARTAMENTO']),
                         'PROVINCIA': getVal(row, ['PROVINCIA_2', 'PROVINCIA']),
                         'DISTRITO': getVal(row, ['DISTRITO_2', 'DISTRITO'])
                     });
                 } else {
-                    // Si hay múltiples números únicos en la misma fila, se duplica la fila por cada número único
+                    // Si hay múltiples números únicos en la misma fila, se duplica la fila por cada número único en TEL1
                     listaTelefonos.forEach(tel => {
                         exportRows.push({
                             'NOMBRE': getVal(row, ['NOMBRE']),
                             'DNI': getVal(row, ['DNI']),
-                            'TEL1': tel,
+                            'TELEFONO': tel,
                             'EMPAQUETADO': getVal(row, ['EMPAQUETADO']),
                             'DEPARTAMENTO': getVal(row, ['DEPARTAMEN', 'DEPARTAMENTO']),
                             'PROVINCIA': getVal(row, ['PROVINCIA_2', 'PROVINCIA']),
